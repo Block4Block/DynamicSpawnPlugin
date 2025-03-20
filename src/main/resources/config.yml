@@ -1,0 +1,26 @@
+# The name of the world to update spawn in (default: "world")
+world-name: world
+
+# How often to update the spawn location (choose keyword or specify ticks manually)
+# Options:
+# - daily    -> 24 hours (1728000 ticks)
+# - weekly   -> 7 days (12096000 ticks)
+# - monthly  -> 30 days (51840000 ticks)
+# - yearly   -> 365 days (631152000 ticks)
+# Or specify exact ticks as a number.
+update_interval: daily
+
+# Note: default 20 ticks = 1 second, so adjust accordingly.
+
+# Step distance per spiral step in blocks.
+# Lower values make the spiral tighter with smaller steps.
+# Higher values make the spiral looser with larger steps.
+spiral_step_distance: 4
+
+# Angle increment divisor that controls how tightly the spiral turns.
+# Lower values increase the turn rate, making the spiral denser.
+# Higher values decrease the turn rate, making the spiral expand more.
+spiral_angle_divisor: 16
+
+
+
