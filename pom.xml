@@ -33,39 +33,9 @@
         </dependency>
         <dependency>
             <groupId>org.spigotmc</groupId>
-            <artifactId>spigot</artifactId>
+            <artifactId>spigot-api</artifactId>
             <version>1.21.1-R0.1-SNAPSHOT</version>
             <scope>provided</scope>
-            <!--            <exclusions>-->
-            <!--                <exclusion>-->
-            <!--                    <groupId>org.yaml</groupId>-->
-            <!--                    <artifactId>snakeyaml</artifactId>-->
-            <!--                </exclusion>-->
-            <!--                <exclusion>-->
-            <!--                    <groupId>commons-codec</groupId>-->
-            <!--                    <artifactId>commons-codec</artifactId>-->
-            <!--                </exclusion>-->
-            <!--                <exclusion>-->
-            <!--                    <groupId>io.netty</groupId>-->
-            <!--                    <artifactId>netty-codec</artifactId>-->
-            <!--                </exclusion>-->
-            <!--                <exclusion>-->
-            <!--                    <groupId>junit</groupId>-->
-            <!--                    <artifactId>junit</artifactId>-->
-            <!--                </exclusion>-->
-            <!--                <exclusion>-->
-            <!--                    <groupId>com.google.guava</groupId>-->
-            <!--                    <artifactId>guava</artifactId>-->
-            <!--                </exclusion>-->
-            <!--                <exclusion>-->
-            <!--                    <groupId>com.mysql</groupId>-->
-            <!--                    <artifactId>mysql-connector-j</artifactId>-->
-            <!--                </exclusion>-->
-            <!--                <exclusion>-->
-            <!--                    <groupId>io.netty</groupId>-->
-            <!--                    <artifactId>netty-handler</artifactId>-->
-            <!--                </exclusion>-->
-            <!--            </exclusions>-->
         </dependency>
     </dependencies>
 
