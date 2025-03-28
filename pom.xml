@@ -5,8 +5,8 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>hasjamon.block4block</groupId>
-    <artifactId>SpiralSpawnPlugin</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <artifactId>DynamicSpawnPlugin</artifactId>
+    <version>1.0</version>
 
     <properties>
         <maven.compiler.source>21</maven.compiler.source>

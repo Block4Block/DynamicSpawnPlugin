@@ -1,22 +1,25 @@
-name: SpiralSpawnPlugin
-main: hasjamon.block4block.SpiralSpawnPlugin
+name: DynamicSpawnPlugin
+main: hasjamon.block4block.DynamicSpawnPlugin
 api-version: 1.21
-authors: [ HasJamOn, Bahm]
+authors: [HasJamOn, Bahm]
 version: 1.0
 commands:
   forcespawnmove:
-    description: Force an immediate spawn update in spiral mode.
+    description: Force an immediate spawn update based on the current mode.
     usage: /forcespawnmove
+    permission: dynamicspawnplugin.forcespawnmove
+    permission-message: You don't have permission to run this command.
+
   checkspawn:
     description: Check the current world spawn coordinates.
     usage: /checkspawn
-    permission: spiralspawnplugin.checkspawn
+    permission: dynamicspawnplugin.checkspawn
     permission-message: You don't have permission to run this command.
 
 permissions:
-  spiralspawnplugin.checkspawn:
+  dynamicspawnplugin.checkspawn:
     description: Allows checking the world spawn location.
     default: op
-  spiralspawnplugin.forcespawnmove:
-    description: Allows checking the world spawn location.
+  dynamicspawnplugin.forcespawnmove:
+    description: Allows forcing a manual spawn update.
     default: op
