@@ -3,12 +3,14 @@ package hasjamon.block4block;
 import hasjamon.block4block.manager.SpiralSpawnManager;
 import hasjamon.block4block.manager.SquareSpawnManager;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.event.world.SpawnChangeEvent;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -21,14 +23,24 @@ public class DynamicSpawnPlugin extends JavaPlugin implements Listener {
     private String mode;
     private String respawnUpdateMode; // "none", "respawn-no-bed", or "respawn-all"
     private long tickInterval;       // Tick interval from config
+    private long lastUpdateMillis = 0;
+    private boolean requireBothConditions;
+    private boolean updateOnNewPlayerJoin;
+    public int centerX = 0;
+    public int centerZ = 0;
 
     @Override
     public void onEnable() {
         saveDefaultConfig(); // Save default config if none exists
 
+        centerX = getConfig().getInt("spawn_center.x", 0);
+        centerZ = getConfig().getInt("spawn_center.z", 0);
+
         // Initialize managers AFTER saving the config
-        spiralManager = new SpiralSpawnManager(this);
-        squareManager = new SquareSpawnManager(this);
+        spiralManager = new SpiralSpawnManager(this, centerX, centerZ);
+        squareManager = new SquareSpawnManager(this, centerX, centerZ);
+
+        lastUpdateMillis = System.currentTimeMillis(); // Initialize to current tick
 
         // Load saved spawn coordinates from config
         squareManager.loadCurrentSpawnPosition();
@@ -49,6 +61,8 @@ public class DynamicSpawnPlugin extends JavaPlugin implements Listener {
         String tickIntervalConfig = getConfig().getString("update_interval", "daily").toLowerCase();
         tickInterval = parseTickInterval(tickIntervalConfig);
         respawnUpdateMode = getConfig().getString("update_on_respawn", "none").toLowerCase();
+        requireBothConditions = getConfig().getBoolean("require_both_conditions");
+        updateOnNewPlayerJoin = getConfig().getBoolean("update_on_new_player_join", true);
 
         // Schedule updates based on tick interval
         if (tickInterval > 0) {
@@ -63,7 +77,7 @@ public class DynamicSpawnPlugin extends JavaPlugin implements Listener {
     @Override
     public void onDisable() {
         // Save current spawn positions on disable
-        squareManager.saveCurrentSpawnPosition(squareManager.getCurrentX(), squareManager.getCurrentZ());
+        squareManager.saveCurrentSpawnPosition();
         spiralManager.saveCurrentSpawnPosition(spiralManager.getRadius(), spiralManager.getAngle());
         getLogger().info("DynamicSpawnPlugin disabled and spawn cycle saved!");
     }
@@ -104,17 +118,59 @@ public class DynamicSpawnPlugin extends JavaPlugin implements Listener {
         }
     }
 
+    public void moveSpawn(World world, String triggerReason) {
+        if (isUpdatingSpawn) return;
+        isUpdatingSpawn = true;
+
+        Location newSpawn;
+
+        if (mode.equals("spiral")) {
+            newSpawn = spiralManager.updateSpawnWithSpiral(world);
+        } else if (mode.equals("square")) {
+            newSpawn = squareManager.updateSpawnWithSquare(world);
+        } else {
+            getLogger().warning("Unknown spawn mode: " + mode);
+            isUpdatingSpawn = false;
+            return;
+        }
+
+        lastUpdateMillis = System.currentTimeMillis();
+
+        String message = getConfig().getString("broadcast_message_template",
+                "§6Spawn moved via §e{reason}§6 ({mode} mode) §7(@ {x}, {y}, {z})");
+
+        message = message
+                .replace("{reason}", triggerReason)
+                .replace("{mode}", mode)
+                .replace("{x}", String.valueOf(newSpawn.getBlockX()))
+                .replace("{y}", String.valueOf(newSpawn.getBlockY()))
+                .replace("{z}", String.valueOf(newSpawn.getBlockZ()));
+
+        Bukkit.broadcastMessage(message);
+        getLogger().info("Spawn moved to X=" + newSpawn.getBlockX() +
+                ", Y=" + newSpawn.getBlockY() +
+                ", Z=" + newSpawn.getBlockZ());
+
+        isUpdatingSpawn = false;
+    }
+
     // Listen for player respawn events if respawn updates are enabled.
     @EventHandler
     public void onPlayerRespawn(PlayerRespawnEvent event) {
-        if (respawnUpdateMode.equals("none")) return;
+        if (respawnUpdateMode.equals("none"))
+            return;
 
         Player player = event.getPlayer();
 
-        // For "respawn-no-bed", only update if the player has no bed spawn.
-        if (respawnUpdateMode.equals("respawn-no-bed") && player.getBedSpawnLocation() != null) {
+        // Evaluate respawn condition
+        boolean shouldUpdate = switch (respawnUpdateMode) {
+            case "respawn-no-bed" -> player.getBedSpawnLocation() == null;
+            case "respawn-all" -> true;
+            default -> false;
+        };
+
+        if (!shouldUpdate)
             return;
-        }
 
         World world = Bukkit.getWorld(getConfig().getString("world-name", "world"));
         if (world == null) {
@@ -122,21 +178,41 @@ public class DynamicSpawnPlugin extends JavaPlugin implements Listener {
             return;
         }
 
-        // Prevent multiple spawn updates if we're already updating
-        if (isUpdatingSpawn) return;
+        long currentMillis = System.currentTimeMillis();
+        long intervalMillis = tickInterval * 50;
 
-        isUpdatingSpawn = true;  // Lock updates temporarily
-
-        // Trigger the spawn update based on the current mode.
-        if (mode.equals("spiral")) {
-            spiralManager.updateSpawnWithSpiral(world);
-            getLogger().info("Spawn updated via respawn trigger (spiral mode).");
-        } else if (mode.equals("square")) {
-            squareManager.updateSpawnWithSquare(world);
-            getLogger().info("Spawn updated via respawn trigger (square mode).");
+        if (requireBothConditions && tickInterval > 0 && (currentMillis - lastUpdateMillis) < intervalMillis) {
+            getLogger().info("Spawn update skipped — interval not yet passed.");
+            return;
         }
 
-        isUpdatingSpawn = false;  // Unlock updates
+        moveSpawn(world, "player respawn");
+    }
+
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        if (!updateOnNewPlayerJoin) return;
+
+        Player player = event.getPlayer();
+
+        // Only proceed if this is the player's first time joining
+        if (player.hasPlayedBefore()) return;
+
+        World world = Bukkit.getWorld(getConfig().getString("world-name", "world"));
+        if (world == null) {
+            getLogger().warning("World not found on join event.");
+            return;
+        }
+
+        long currentMillis = System.currentTimeMillis();
+        long intervalMillis = tickInterval * 50;
+
+        if (requireBothConditions && tickInterval > 0 && (currentMillis - lastUpdateMillis) < intervalMillis) {
+            getLogger().info("Spawn update skipped on first join — interval not yet passed.");
+            return;
+        }
+
+        moveSpawn(world, "new player join");
     }
 
     // Prevent duplicate updates on spawn change
@@ -165,14 +241,27 @@ public class DynamicSpawnPlugin extends JavaPlugin implements Listener {
             return true;
         }
 
+        if (args.length > 0 && args[0].equalsIgnoreCase("help")) {
+            sender.sendMessage("§e/forcespawnmove§7 - force a spawn move immediately");
+            sender.sendMessage("§e/forcespawnmove reset§7 - reset spawn cycle to center");
+            sender.sendMessage("§e/checkspawn§7 - view current spawn coordinates");
+            return true;
+        }
+
         if ("forcespawnmove".equalsIgnoreCase(command.getName())) {
-            if (mode.equals("spiral")) {
-                spiralManager.updateSpawnWithSpiral(world);
-                sender.sendMessage("Spawn updated using spiral mode!");
-            } else if (mode.equals("square")) {
-                squareManager.updateSpawnWithSquare(world);
-                sender.sendMessage("Spawn updated using square mode!");
+            if (args.length > 0 && args[0].equalsIgnoreCase("reset")) {
+                spiralManager.resetSpiralCycle();
+                squareManager.resetSquareCycle();
+
+                // Move spawn to center (first position in the cycle)
+                moveSpawn(world, "manual reset");
+
+                sender.sendMessage("§cSpawn cycle reset and moved to center.");
+                return true;
             }
+
+            moveSpawn(world, "manual command");
+            sender.sendMessage("§aSpawn updated using §e" + mode + "§a mode!");
             return true;
         }
 
@@ -183,6 +272,24 @@ public class DynamicSpawnPlugin extends JavaPlugin implements Listener {
             sender.sendMessage("§aCurrent world spawn coordinates: §e" + x + ", " + y + ", " + z);
             return true;
         }
+
+        if ("reloadcenter".equalsIgnoreCase(command.getName())) {
+            centerX = getConfig().getInt("spawn_center.x", 0);
+            centerZ = getConfig().getInt("spawn_center.z", 0);
+
+            // Reinitialize managers with new center values
+            spiralManager = new SpiralSpawnManager(this, centerX, centerZ);
+            squareManager = new SquareSpawnManager(this, centerX, centerZ);
+
+            // Load their last known state
+            spiralManager.loadCurrentSpawnPosition();
+            squareManager.loadCurrentSpawnPosition();
+
+            sender.sendMessage("§aCenter reloaded to §eX=" + centerX + ", Z=" + centerZ);
+            return true;
+        }
+
         return false;
     }
+
 }

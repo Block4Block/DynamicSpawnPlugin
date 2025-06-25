@@ -1,24 +1,41 @@
 # The name of the world to update spawn in (default: "world")
 world-name: world
 
-# How often to update the spawn location using ticks. Options:
+# How often to update the spawn location. Options:
 # - daily    -> 24 hours (1728000 ticks)
 # - weekly   -> 7 days (12096000 ticks)
 # - monthly  -> 30 days (51840000 ticks)
 # - yearly   -> 365 days (631152000 ticks)
-# Or specify an exact tick value as a number. Use 0 for only player respawns trigger.
-update_interval: 0
+# Or specify an exact tick value as a number (1 tick = 50ms).
+# Use 0 for no time-based updates (only player respawns can trigger updates).
+update_interval: daily
 
-# Additionally, you can also trigger spawn updates when a player respawns.
+# Triggers spawn update on player respawn.
 # Options:
-# - none            -> Do not update spawn on respawn events.
-# - respawn-no-bed  -> Update spawn only when a player respawns without a bed spawn.
-# - respawn-all     -> Update spawn on every respawn.
+# - none            -> Disable spawn update on respawn
+# - respawn-no-bed  -> Update only if the player has no bed spawn
+# - respawn-all     -> Update on every respawn
 update_on_respawn: respawn-no-bed
+
+# If true, a spawn update is triggered when a new player joins the server
+# for the first time. Respects the same update_interval and require_both_conditions settings.
+update_on_new_player_join: true
+
+# If true, the spawn will only update on respawn if the time interval
+# (specified in update_interval) has also passed.
+require_both_conditions: true
+
+# Template for spawn move messages. Use {reason} and {mode} as placeholders
+broadcast_message_template: "§6Spawn moved via §e{reason}§6 ({mode} mode) at §eX={x}, Y={y}, Z={z}"
 
 # Mode of spawn movement
 # Available modes: spiral, square
 mode: square
+
+# Custom center for all spawn movement modes
+spawn_center:
+  x: 0
+  z: 0
 
 
 # Spiral Mode Configuration
@@ -30,10 +47,15 @@ spiral_angle_divisor: 16
 
 
 # Square Mode Configuration
-# The step size between each square spawn update.
+# Controls how spawn moves in square mode.
 # Options:
-# - A number: Use as a multiplier between steps.
-# - "chunkcenter": Place spawn at the center of each chunk.
+# - A number: Each square step is multiplied by this value.
+# - "chunkcenter": Places spawn in the center of each 16x16 chunk.
 square_step: chunkcenter
+
+# Do not change these manually unless restoring from backup:
+square:
+  layer: 0
+  stepIndex: 0
 
 
