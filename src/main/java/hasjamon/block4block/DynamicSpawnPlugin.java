@@ -215,19 +215,25 @@ public class DynamicSpawnPlugin extends JavaPlugin implements Listener {
         moveSpawn(world, "new player join");
     }
 
-    // Prevent duplicate updates on spawn change
+    // FIXED: Only react to EXTERNAL spawn changes (not our own)
     @EventHandler
     public void onSpawnChange(SpawnChangeEvent event) {
-        if (isUpdatingSpawn) return;  // Ignore if we're already modifying the spawn
+        // CRITICAL FIX: Ignore spawn changes we caused ourselves
+        if (isUpdatingSpawn) {
+            return;
+        }
 
+        // This spawn change was caused by something else (command, plugin, etc.)
         World world = event.getWorld();
-        getLogger().info("World spawn changed. Resetting spawn cycle.");
+        getLogger().info("External spawn change detected. Resetting spawn cycle to match new location.");
 
         // Reset the spawn cycle based on mode
         spiralManager.resetSpiralCycle();
         squareManager.resetSquareCycle();
 
-        // Reschedule the tick-based updates from the new spawn
+        // Cancel and reschedule the tick-based updates from the new spawn
+        Bukkit.getScheduler().cancelTasks(this);
+
         if (tickInterval > 0) {
             scheduleTickBasedUpdates(world);
         }
@@ -245,6 +251,7 @@ public class DynamicSpawnPlugin extends JavaPlugin implements Listener {
             sender.sendMessage("§e/forcespawnmove§7 - force a spawn move immediately");
             sender.sendMessage("§e/forcespawnmove reset§7 - reset spawn cycle to center");
             sender.sendMessage("§e/checkspawn§7 - view current spawn coordinates");
+            sender.sendMessage("§e/reloadcenter§7 - reload spawn center from config");
             return true;
         }
 

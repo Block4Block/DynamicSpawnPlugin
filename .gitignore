@@ -29,3 +29,8 @@ target/classes/hasjamon/block4block/manager/SpiralSpawnManager.class
 target/classes/hasjamon/block4block/manager/SquareSpawnManager.class
 target/DynamicSpawnPlugin-1.0.jar
 target/DynamicSpawnPlugin-1.1.jar
+target/classes/hasjamon/block4block/DynamicSpawnPlugin.class
+target/classes/hasjamon/block4block/manager/SpiralSpawnManager.class
+target/classes/hasjamon/block4block/manager/SquareSpawnManager.class
+target/DynamicSpawnPlugin-1.0.jar
+.idea/workspace.xml
