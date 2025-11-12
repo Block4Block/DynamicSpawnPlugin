@@ -22,10 +22,6 @@ public class SquareSpawnManager {
         this.centerZ = centerZ;
     }
 
-    public void scheduleSquareSpawnUpdate(World world, long interval) {
-        Bukkit.getScheduler().runTaskTimer(plugin, () -> updateSpawnWithSquare(world), 0L, interval);
-    }
-
     public void loadCurrentSpawnPosition() {
         layer = plugin.getConfig().getInt("square.layer", 0);
         stepIndex = plugin.getConfig().getInt("square.stepIndex", 0);

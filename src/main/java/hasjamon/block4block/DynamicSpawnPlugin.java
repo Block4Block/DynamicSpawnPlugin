@@ -18,6 +18,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 public class DynamicSpawnPlugin extends JavaPlugin implements Listener {
 
     private boolean isUpdatingSpawn = false;
+    private boolean isInitializing = false;  // NEW: Flag for plugin initialization
     private SpiralSpawnManager spiralManager;
     private SquareSpawnManager squareManager;
     private String mode;
@@ -31,6 +32,8 @@ public class DynamicSpawnPlugin extends JavaPlugin implements Listener {
 
     @Override
     public void onEnable() {
+        isInitializing = true;  // Set flag during initialization
+
         saveDefaultConfig(); // Save default config if none exists
 
         centerX = getConfig().getInt("spawn_center.x", 0);
@@ -53,6 +56,7 @@ public class DynamicSpawnPlugin extends JavaPlugin implements Listener {
         World world = Bukkit.getWorld(getConfig().getString("world-name", "world"));
         if (world == null) {
             getLogger().severe("World not found! Please check your config.yml");
+            isInitializing = false;
             return;
         }
 
@@ -72,6 +76,8 @@ public class DynamicSpawnPlugin extends JavaPlugin implements Listener {
         if (!respawnUpdateMode.equals("none")) {
             getLogger().info("Respawn-based update enabled with mode: " + respawnUpdateMode);
         }
+
+        isInitializing = false;  // Clear flag after initialization complete
     }
 
     @Override
@@ -83,15 +89,26 @@ public class DynamicSpawnPlugin extends JavaPlugin implements Listener {
     }
 
     private void scheduleTickBasedUpdates(World world) {
+        // Cancel any existing tasks first
+        Bukkit.getScheduler().cancelTasks(this);
+
         if (mode.equals("spiral")) {
-            spiralManager.scheduleSpiralSpawnUpdate(world, tickInterval);
+            // Schedule with delay equal to interval (not 0) to prevent immediate execution
+            Bukkit.getScheduler().runTaskTimer(this, () -> {
+                moveSpawn(world, "scheduled update");
+            }, tickInterval, tickInterval);
             getLogger().info("Spiral mode enabled with tick interval: " + tickInterval + " ticks.");
         } else if (mode.equals("square")) {
-            squareManager.scheduleSquareSpawnUpdate(world, tickInterval);
+            // Schedule with delay equal to interval (not 0) to prevent immediate execution
+            Bukkit.getScheduler().runTaskTimer(this, () -> {
+                moveSpawn(world, "scheduled update");
+            }, tickInterval, tickInterval);
             getLogger().info("Square mode enabled with tick interval: " + tickInterval + " ticks.");
         } else {
             getLogger().warning("Invalid mode! Defaulting to spiral mode.");
-            spiralManager.scheduleSpiralSpawnUpdate(world, tickInterval);
+            Bukkit.getScheduler().runTaskTimer(this, () -> {
+                moveSpawn(world, "scheduled update");
+            }, tickInterval, tickInterval);
         }
     }
 
@@ -215,10 +232,15 @@ public class DynamicSpawnPlugin extends JavaPlugin implements Listener {
         moveSpawn(world, "new player join");
     }
 
-    // FIXED: Only react to EXTERNAL spawn changes (not our own)
+    // Only react to EXTERNAL spawn changes (not our own)
     @EventHandler
     public void onSpawnChange(SpawnChangeEvent event) {
-        // CRITICAL FIX: Ignore spawn changes we caused ourselves
+        // Ignore all spawn changes during plugin initialization
+        if (isInitializing) {
+            return;
+        }
+
+        // Ignore spawn changes we caused ourselves
         if (isUpdatingSpawn) {
             return;
         }
@@ -226,6 +248,9 @@ public class DynamicSpawnPlugin extends JavaPlugin implements Listener {
         // This spawn change was caused by something else (command, plugin, etc.)
         World world = event.getWorld();
         getLogger().info("External spawn change detected. Resetting spawn cycle to match new location.");
+
+        // Set flag to prevent recursive spawn change events
+        isUpdatingSpawn = true;
 
         // Reset the spawn cycle based on mode
         spiralManager.resetSpiralCycle();
@@ -237,6 +262,9 @@ public class DynamicSpawnPlugin extends JavaPlugin implements Listener {
         if (tickInterval > 0) {
             scheduleTickBasedUpdates(world);
         }
+
+        // Clear flag after processing
+        isUpdatingSpawn = false;
     }
 
     @Override
@@ -257,8 +285,10 @@ public class DynamicSpawnPlugin extends JavaPlugin implements Listener {
 
         if ("forcespawnmove".equalsIgnoreCase(command.getName())) {
             if (args.length > 0 && args[0].equalsIgnoreCase("reset")) {
+                isUpdatingSpawn = true;  // Prevent event loop
                 spiralManager.resetSpiralCycle();
                 squareManager.resetSquareCycle();
+                isUpdatingSpawn = false;
 
                 // Move spawn to center (first position in the cycle)
                 moveSpawn(world, "manual reset");
@@ -281,6 +311,8 @@ public class DynamicSpawnPlugin extends JavaPlugin implements Listener {
         }
 
         if ("reloadcenter".equalsIgnoreCase(command.getName())) {
+            isUpdatingSpawn = true;  // Prevent events during reload
+
             centerX = getConfig().getInt("spawn_center.x", 0);
             centerZ = getConfig().getInt("spawn_center.z", 0);
 
@@ -291,6 +323,8 @@ public class DynamicSpawnPlugin extends JavaPlugin implements Listener {
             // Load their last known state
             spiralManager.loadCurrentSpawnPosition();
             squareManager.loadCurrentSpawnPosition();
+
+            isUpdatingSpawn = false;
 
             sender.sendMessage("§aCenter reloaded to §eX=" + centerX + ", Z=" + centerZ);
             return true;

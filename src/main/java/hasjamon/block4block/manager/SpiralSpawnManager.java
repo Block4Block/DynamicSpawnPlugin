@@ -19,10 +19,6 @@ public class SpiralSpawnManager {
         this.centerZ = centerZ;
     }
 
-    public void scheduleSpiralSpawnUpdate(World world, long interval) {
-        Bukkit.getScheduler().runTaskTimer(plugin, () -> updateSpawnWithSpiral(world), 0L, interval);
-    }
-
     public void loadCurrentSpawnPosition() {
         radius = plugin.getConfig().getInt("spiral.radius", 1);  // Default to 1 if not set
         angle = plugin.getConfig().getInt("spiral.angle", 0);
